@@ -5,8 +5,7 @@ import java.nio.channels.*;
 import java.nio.charset.*;
 import java.util.*;
 
-public class ChatServer
-{
+public class ChatServer {
   // A pre-allocated buffer for the received data
   static private final ByteBuffer buffer = ByteBuffer.allocate(16384);
 
@@ -129,18 +128,15 @@ public class ChatServer
     }
   }
 
-  static boolean name_exist()
-  {
+  static boolean name_exist() {
     return false;
   }
 
-  static boolean sala_exist()
-  {
+  static boolean sala_exist() {
     return true;
   }
 
-  static void process_command(String[] words, UserInfo user)
-  {
+  static void process_command(String[] words, UserInfo user) {
     String state = "state";
 
     if (words[0].equals("/nick")) {
@@ -155,8 +151,7 @@ public class ChatServer
         System.out.print("ERROR");
       }
       else if(sala_exist()) {
-        if(state =="outside")
-        {
+        if(state =="outside") {
           //juntar a sala_exist
           System.out.print("OK"); //para quem usa o comando
           System.out.print("JOINED" + user.name); //para quem ja esta na sala
