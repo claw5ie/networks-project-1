@@ -28,9 +28,9 @@ public class ChatServer {
       // listening port
       ServerSocket server = socket_channel.socket();
       int port = Integer.parseInt(args[0]);
-      
+
       server.bind(new InetSocketAddress(port));
-      
+
       // Create a new Selector for selecting
       Selector selector = Selector.open();
 
@@ -49,11 +49,8 @@ public class ChatServer {
         // Get the keys corresponding to the activity that has been
         // detected, and process them one by one
         Set<SelectionKey> keys = selector.selectedKeys();
-        Iterator<SelectionKey> it = keys.iterator();
-        while (it.hasNext()) {
-          // Get a key representing one of bits of I/O activity
-          SelectionKey key = it.next();
-
+        // Get a key representing one of bits of I/O activity
+        for (SelectionKey key : keys) {
           // What kind of activity is it?
           if (key.isAcceptable()) {
             // It's an incoming connection.  Register this socket with
@@ -82,7 +79,7 @@ public class ChatServer {
 
               if (message != null) {
                 UserInfo user = users.get(sc);
-                
+
                 if (message.charAt(0) == '/') {
                   process_command(message.split(" ", 0), user);
                   System.out.println("Server: " + message);
@@ -91,8 +88,7 @@ public class ChatServer {
                     (user == null ? "Anon: " : user.name) + ": " + message
                     );
                 }
-              }
-              else {
+              } else {
                 // If the connection is dead, remove it from the selector
                 // and close it
                 key.cancel();
@@ -100,11 +96,11 @@ public class ChatServer {
                 Socket s = null;
                 try {
                   s = sc.socket();
-                  System.out.println("Closing connection to "+s);
+                  System.out.println("Closing connection to " + s);
                   s.close();
                   users.remove(sc);
                 } catch(IOException ie) {
-                  System.err.println("Error closing socket "+s+": "+ie);
+                  System.err.println("Error closing socket " + s + ": " + ie);
                 }
               }
             } catch(IOException ie) {
@@ -115,7 +111,7 @@ public class ChatServer {
                 sc.close();
               } catch(IOException ie2) { System.out.println(ie2); }
 
-              System.out.println("Closed "+sc);
+              System.out.println("Closed " + sc);
             }
           }
         }
@@ -149,8 +145,7 @@ public class ChatServer {
     } else if(words[0].equals("/join")) {
       if(words.length != 2 || state == "init") {
         System.out.print("ERROR");
-      }
-      else if(sala_exist()) {
+      } else if(sala_exist()) {
         if(state =="outside") {
           //juntar a sala_exist
           System.out.print("OK"); //para quem usa o comando
@@ -161,23 +156,19 @@ public class ChatServer {
           System.out.print("LEFT" + user.name); //para quem esta na sala antiga
           System.out.print("JOINED" + user.name); //para quem ja esta na sala nova
         }
-      }
-      else {
+      } else {
         //criar sala
         System.out.print("OK");
       }
-    }
-    else if(words[0].equals("/leave")) {
+    } else if(words[0].equals("/leave")) {
       if(state == "inside") {
         //sair da sala
         System.out.print("OK");// para mim
         System.out.print("LEFT" + user.name);
-      }
-      else {
+      } else {
         System.out.print("ERROR");
       }
-    }
-    else if(words[0].equals("/bye")) {
+    } else if(words[0].equals("/bye")) {
       System.out.print("BYE");//mim
       if(state == "inside") {
         System.out.print("LEFT" + user.name);

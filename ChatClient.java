@@ -17,7 +17,7 @@ public class ChatClient {
 
   Socket client = null;
   DataOutputStream send_to_server = null;
-  
+
   // Método a usar para acrescentar uma string à caixa de texto
   // * NÃO MODIFICAR *
   public void printMessage(final String message) {
@@ -43,9 +43,7 @@ public class ChatClient {
         @Override
         public void actionPerformed(ActionEvent e) {
           try {
-            String message = chatBox.getText();
-            newMessage(message);
-            printMessage(message + '\n');
+            newMessage(chatBox.getText());
           } catch (IOException ex) {
           } finally {
             chatBox.setText("");
@@ -71,7 +69,8 @@ public class ChatClient {
   // Método invocado sempre que o utilizador insere uma mensagem
   // na caixa de entrada
   public void newMessage(String message) throws IOException {
-    send_to_server.writeBytes(message);
+    printMessage(message + '\n');
+    send_to_server.writeBytes(message + '\n');
   }
 
   // Método principal do objecto
