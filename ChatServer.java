@@ -124,51 +124,75 @@ public class ChatServer {
     }
   }
 
-  static boolean name_exist() {
+  static boolean name_exist(String name) {
     return false;
   }
 
-  static boolean sala_exist() {
+  static boolean sala_exist(String sala) {
     return true;
   }
 
   static void process_command(String[] words, UserInfo user) {
-    String state = "state";
 
+//nick
     if (words[0].equals("/nick")) {
-      if(words.length == 2 && !name_exist()) {
-        System.out.println("name set to: " + words[1]);
-        user.name = words[1];
-      } else {
+
+      if(words.length == 2 && !name_exist(name)) {
+        String name = words[1];
+        System.out.println("OK");
+        if(user.state == 1){
+          user.state = 2;//outside
+          //adicionar o user a lista
+        }
+        else if(user.state == 3){
+          System.out.println("NEWNICK " + user.name + " " + name);
+        }
+        user.name = name;
+      }
+
+      else {
         System.out.print("ERROR");
       }
-    } else if(words[0].equals("/join")) {
-      if(words.length != 2 || state == "init") {
+    }
+
+//join
+    else if(words[0].equals("/join")) {
+      if(words.length != 2 || user.state == 1) {
         System.out.print("ERROR");
-      } else if(sala_exist()) {
-        if(state =="outside") {
-          //juntar a sala_exist
-          System.out.print("OK"); //para quem usa o comando
+      }
+      else if(sala_exist()) {
+        System.out.print("OK"); //para quem usa o comando
+        if(user.state == 2) {
           System.out.print("JOINED" + user.name); //para quem ja esta na sala
-        } else {
-          //sair da sala atual
-          System.out.print("OK"); //para quem usa o comando
+        }
+        else {
           System.out.print("LEFT" + user.name); //para quem esta na sala antiga
+          //retirar user da sala na lista e se a sala ficou vazia apaga-la
           System.out.print("JOINED" + user.name); //para quem ja esta na sala nova
         }
-      } else {
-        //criar sala
+        user.sala = words[1];
+        user.state = 3;//inside
+      }
+      else {
+        //adicionar words[1] a lista de salas
+        user.sala = words[1];
         System.out.print("OK");
       }
-    } else if(words[0].equals("/leave")) {
-      if(state == "inside") {
-        //sair da sala
+    }
+
+//leave
+    else if(words[0].equals("/leave")) {
+      if(user.state == 3) {
+        user.sala = null;
         System.out.print("OK");// para mim
         System.out.print("LEFT" + user.name);
       } else {
         System.out.print("ERROR");
       }
-    } else if(words[0].equals("/bye")) {
+    }
+
+//leave
+    else if(words[0].equals("/bye")) {
       System.out.print("BYE");//mim
       if(state == "inside") {
         System.out.print("LEFT" + user.name);
