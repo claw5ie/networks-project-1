@@ -5,8 +5,8 @@ import java.nio.channels.*;
 import java.nio.charset.*;
 import java.util.*;
 
-
-public class ChatServer {
+public class ChatServer
+{
   // A pre-allocated buffer for the received data
   static private final ByteBuffer buffer = ByteBuffer.allocate(16384);
 
@@ -15,13 +15,13 @@ public class ChatServer {
     Charset.forName("UTF8").newDecoder();
 
   static Hashtable<SocketChannel, UserInfo> users = new Hashtable<>();
-  static TreeMap<String,  UserInfo> clients = new TreeMap<>();
+  static TreeMap<String, UserInfo> clients = new TreeMap<>();
   static TreeMap<String, TreeSet<UserInfo>> salas = new TreeMap<>();
 
-
-
-  static public void main(String args[]) throws Exception {
-    try {
+  static public void main(String args[]) throws Exception
+  {
+    try
+    {
       // Instead of creating a ServerSocket, create a ServerSocketChannel
       ServerSocketChannel socket_channel = ServerSocketChannel.open();
 
@@ -43,7 +43,8 @@ public class ChatServer {
       socket_channel.register(selector, SelectionKey.OP_ACCEPT);
       System.out.println("Listening on port " + port);
 
-      while (true) {
+      while (true)
+      {
         // See if we've had any activity -- either an incoming connection,
         // or incoming data on an existing connection
         // If we don't have any activity, loop around and wait again
@@ -54,9 +55,11 @@ public class ChatServer {
         // detected, and process them one by one
         Set<SelectionKey> keys = selector.selectedKeys();
         // Get a key representing one of bits of I/O activity
-        for (SelectionKey key : keys) {
+        for (SelectionKey key : keys)
+        {
           // What kind of activity is it?
-          if (key.isAcceptable()) {
+          if (key.isAcceptable())
+          {
             // It's an incoming connection.  Register this socket with
             // the Selector so we can listen for input on it
             Socket socket = server.accept();
@@ -71,34 +74,44 @@ public class ChatServer {
             channel.register(selector, SelectionKey.OP_READ);
 
             if (!users.contains(channel))
-              users.put(channel, new UserInfo(channel));
+              users.put(channel, new UserInfo(key));
 
-          } else if (key.isReadable()) {
+          }
+          else if (key.isReadable())
+          {
             SocketChannel sc = null;
 
-            try {
+            try
+            {
               // It's incoming data on a connection -- process it
               sc = (SocketChannel)key.channel();
               String message = processInput(sc);
 
-              if (message != null) {
+              if (message != null)
+              {
                 UserInfo user = users.get(sc);
 
-                if (message.charAt(0) == '/') {
+                if (message.charAt(0) == '/')
+                {
                   process_command(message.split(" ", 0), user);
                   System.out.println("Server: " + message);
-                } else {
+                }
+                else
+                {
                   System.out.println(
                     (user == null ? "Anon: " : user.name) + ": " + message
                     );
                 }
-              } else {
+              }
+              else
+              {
                 // If the connection is dead, remove it from the selector
                 // and close it
                 key.cancel();
 
                 Socket s = null;
-                try {
+                try
+                {
                   s = sc.socket();
                   System.out.println("Closing connection to " + s);
                   s.close();
@@ -111,9 +124,12 @@ public class ChatServer {
               // On exception, remove this channel from the selector
               key.cancel();
 
-              try {
+              try
+              {
                 sc.close();
-              } catch(IOException ie2) { System.out.println(ie2); }
+              } catch(IOException ie2) {
+                System.out.println(ie2);
+              }
 
               System.out.println("Closed " + sc);
             }
@@ -128,122 +144,153 @@ public class ChatServer {
     }
   }
 
-
-  static void process_command(String[] words, UserInfo user) {
+  static void process_command(String[] words, UserInfo user)
+  {
     TreeSet<UserInfo> sala;
-    //nick
-    if (words[0].equals("/nick")) {
-      if(words.length == 2) {
+    // nick
+    if (words[0].equals("/nick"))
+    {
+      if (words.length == 2)
+      {
         String name = words[1];
-        if(!clients.contains(name)){
+        if (!clients.containsKey(name))
+        {
           System.out.println("OK");
-          if(user.state == 1){
-            user.state = 2;//outside
+          if (user.state == 1)
+          {
+            user.state = 2; // outside
             clients.put(name, user);
           }
-          else if(user.state == 3){
+          else if (user.state == 3)
+          {
             System.out.println("NEWNICK " + user.name + " " + name);
           }
           user.name = name;
         }
-        else {
+        else
+        {
           System.out.print("ERROR");
         }
       }
-      else {
+      else
+      {
         System.out.print("ERROR");
       }
     }
 
-//join
-    else if(words[0].equals("/join")) {
-      if(words.length != 2 || user.state == 1) {
+    // join
+    else if (words[0].equals("/join"))
+    {
+      if (words.length != 2 || user.state == 1)
+      {
         System.out.print("ERROR");
       }
-      else if(salas.contains(words[1])) {
-        System.out.print("OK"); //para quem usa o comando
-        if(user.state == 2) {
-          System.out.print("JOINED" + user.name); //para quem ja esta na sala
-          user.state = 3;//inside
+      else if (salas.containsKey(words[1]))
+      {
+        System.out.print("OK"); // para quem usa o comando
+        if (user.state == 2)
+        {
+          System.out.print("JOINED" + user.name); // para quem ja esta na sala
+          user.state = 3; // inside
         }
-        else {
-          System.out.print("LEFT" + user.name); //para quem esta na sala antiga
-          //retirar user da sala na lista e se a sala ficou vazia apaga-la
+        else
+        {
+          System.out.print("LEFT" + user.name); // para quem esta na sala antiga
+          // retirar user da sala na lista e se a sala ficou vazia apaga-la
           sala = salas.get(user.sala);
-          if(sala.size() == 1){
+          if (sala.size() == 1)
+          {
             salas.remove(user.sala);
           }
-          else{
+          else
+          {
             sala.remove(user.name);
           }
-          System.out.print("JOINED" + user.name); //para quem ja esta na sala nova
+          System.out.print("JOINED" + user.name); // para quem ja esta na sala nova
         }
         user.sala = words[1];
-        //adicionar o user nos parametros da sala
-        salas.get(user.sala).put(user)
+        // adicionar o user nos parametros da sala
+        salas.get(user.sala).add(user);
       }
-      else {//se a sala nao existir
-        //adicionar words[1] a lista de salas com o user
-        salas.put(words[1], user);
+      else
+      {
+        // se a sala nao existir
+        // adicionar words[1] a lista de salas com o user
+        TreeSet<UserInfo> new_sala = new TreeSet<>();
+        new_sala.add(user);
+        salas.put(words[1], new_sala);
         user.sala = words[1];
         System.out.print("OK");
       }
     }
 
-//leave
-    else if(words[0].equals("/leave")) {
-      if(user.state == 3 && words.length == 1) {
-        //RETIRAR USER DA SALA E APAGA-LA SE PRECISO
+    // leave
+    else if (words[0].equals("/leave"))
+    {
+      if (user.state == 3 && words.length == 1)
+      {
+        // RETIRAR USER DA SALA E APAGA-LA SE PRECISO
         sala = salas.get(user.sala);
-        if(sala.size() == 1){
+        if (sala.size() == 1)
+        {
           salas.remove(user.sala);
         }
-        else{
+        else
+        {
           sala.remove(user.name);
         }
         user.sala = null;
-        System.out.print("OK");// para mim
-        System.out.print("LEFT" + user.name);//para outros
-      } else {
+        System.out.print("OK"); // para mim
+        System.out.print("LEFT" + user.name); // para outros
+      }
+      else
+      {
         System.out.print("ERROR");
       }
     }
 
-//leave
-    else if(words[0].equals("/bye")) {
-      System.out.print("BYE");//mim
-      if(state == "inside") {
+    // leave
+    else if (words[0].equals("/bye"))
+    {
+      System.out.print("BYE"); // mim
+      if (user.state == 3)
+      {
         sala = salas.get(user.sala);
-        if(sala.size() == 1){
+        if (sala.size() == 1)
+        {
           salas.remove(user.sala);
         }
-        else{
+        else
+        {
           sala.remove(user.name);
         }
         System.out.print("LEFT" + user.name);
       }
-      //apagar user da lista
+
+      // apagar user da lista
       clients.remove(user.name);
-      key.cancel();
+      user.key.cancel();
 
       Socket s = null;
-      try {
-        s = user.key.channel().socket();
+      try
+      {
+        SocketChannel channel = (SocketChannel)user.key.channel();
+        s = channel.socket();
         System.out.println("Closing connection to " + s);
         s.close();
-        users.remove(sc);
+        users.remove(channel);
       } catch(IOException ie) {
         System.err.println("Error closing socket " + s + ": " + ie);
       }
-    }
-      users.remove(user.key.channel);
+      users.remove(user.key.channel());
     }
   }
 
   // Just read the message from the socket and send it to stdout
   static private String processInput(
     SocketChannel socket_channel
-    ) throws IOException {
+    ) throws IOException
+  {
     // Read the message to the buffer
     buffer.clear();
     socket_channel.read(buffer);
