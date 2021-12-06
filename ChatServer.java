@@ -4,6 +4,7 @@ import java.nio.*;
 import java.nio.channels.*;
 import java.nio.charset.*;
 import java.util.*;
+import java.lang.Character.*;
 
 public class ChatServer
 {
@@ -14,9 +15,9 @@ public class ChatServer
   static private final CharsetDecoder decoder =
     Charset.forName("UTF8").newDecoder();
 
-  static Hashtable<SocketChannel, UserInfo> users = new Hashtable<>();
-  static TreeMap<String, UserInfo> clients = new TreeMap<>();
-  static TreeMap<String, TreeSet<UserInfo>> salas = new TreeMap<>();
+  static private Hashtable<SocketChannel, UserInfo> users = new Hashtable<>();
+  static private TreeMap<String, UserInfo> clients = new TreeMap<>();
+  static private TreeMap<String, TreeSet<UserInfo>> salas = new TreeMap<>();
 
   static public void main(String args[]) throws Exception
   {
@@ -74,7 +75,7 @@ public class ChatServer
             channel.register(selector, SelectionKey.OP_READ);
 
             if (!users.contains(channel))
-              users.put(channel, new UserInfo(key));
+              users.put(channel, new UserInfo(channel));
 
           }
           else if (key.isReadable())
@@ -93,8 +94,8 @@ public class ChatServer
 
                 if (message.charAt(0) == '/')
                 {
-                  process_command(message.split(" ", 0), user);
                   System.out.println("Server: " + message);
+                  process_command(message.split(" ", 0), user);
                 }
                 else
                 {
@@ -144,18 +145,26 @@ public class ChatServer
     }
   }
 
-  static void process_command(String[] words, UserInfo user)
+  static void send_message(UserInfo user, String message) throws IOException
   {
-    TreeSet<UserInfo> sala;
-    // nick
+    buffer.clear();
+    buffer.put((message + '\n').getBytes());
+    buffer.flip();
+    user.channel.write(buffer);
+  }
+
+  static void process_command(String[] words, UserInfo user) throws IOException
+  {
     if (words[0].equals("/nick"))
     {
+      // nick
+
       if (words.length == 2)
       {
         String name = words[1];
         if (!clients.containsKey(name))
         {
-          System.out.println("OK");
+          send_message(user, "OK");
           if (user.state == 1)
           {
             user.state = 2; // outside
@@ -169,35 +178,35 @@ public class ChatServer
         }
         else
         {
-          System.out.print("ERROR");
+          send_message(user, "ERROR");
         }
       }
       else
       {
-        System.out.print("ERROR");
+        send_message(user, "ERROR");
       }
     }
-
-    // join
     else if (words[0].equals("/join"))
     {
+      // join
+
       if (words.length != 2 || user.state == 1)
       {
-        System.out.print("ERROR");
+        send_message(user, "ERROR");
       }
       else if (salas.containsKey(words[1]))
       {
-        System.out.print("OK"); // para quem usa o comando
+        System.out.println("OK"); // para quem usa o comando
         if (user.state == 2)
         {
-          System.out.print("JOINED" + user.name); // para quem ja esta na sala
+          System.out.println("JOINED" + user.name); // para quem ja esta na sala
           user.state = 3; // inside
         }
         else
         {
-          System.out.print("LEFT" + user.name); // para quem esta na sala antiga
+          System.out.println("LEFT" + user.name); // para quem esta na sala antiga
           // retirar user da sala na lista e se a sala ficou vazia apaga-la
-          sala = salas.get(user.sala);
+          TreeSet<UserInfo> sala = salas.get(user.sala);
           if (sala.size() == 1)
           {
             salas.remove(user.sala);
@@ -206,7 +215,8 @@ public class ChatServer
           {
             sala.remove(user.name);
           }
-          System.out.print("JOINED" + user.name); // para quem ja esta na sala nova
+          // para quem ja esta na sala nova
+          System.out.println("JOINED" + user.name);
         }
         user.sala = words[1];
         // adicionar o user nos parametros da sala
@@ -220,17 +230,17 @@ public class ChatServer
         new_sala.add(user);
         salas.put(words[1], new_sala);
         user.sala = words[1];
-        System.out.print("OK");
+        System.out.println("OK");
       }
     }
-
-    // leave
     else if (words[0].equals("/leave"))
     {
+      // leave
+
       if (user.state == 3 && words.length == 1)
       {
         // RETIRAR USER DA SALA E APAGA-LA SE PRECISO
-        sala = salas.get(user.sala);
+        TreeSet<UserInfo> sala = salas.get(user.sala);
         if (sala.size() == 1)
         {
           salas.remove(user.sala);
@@ -240,22 +250,22 @@ public class ChatServer
           sala.remove(user.name);
         }
         user.sala = null;
-        System.out.print("OK"); // para mim
-        System.out.print("LEFT" + user.name); // para outros
+        System.out.println("OK"); // para mim
+        System.out.println("LEFT" + user.name); // para outros
       }
       else
       {
-        System.out.print("ERROR");
+        send_message(user, "ERROR");
       }
     }
-
-    // leave
     else if (words[0].equals("/bye"))
     {
-      System.out.print("BYE"); // mim
+      // leave
+
+      System.out.println("BYE"); // mim
       if (user.state == 3)
       {
-        sala = salas.get(user.sala);
+        TreeSet<UserInfo> sala = salas.get(user.sala);
         if (sala.size() == 1)
         {
           salas.remove(user.sala);
@@ -264,25 +274,24 @@ public class ChatServer
         {
           sala.remove(user.name);
         }
-        System.out.print("LEFT" + user.name);
+        System.out.println("LEFT" + user.name);
       }
 
       // apagar user da lista
-      clients.remove(user.name);
-      user.key.cancel();
+      users.remove(user.channel);
+      if (user.name != null)
+        clients.remove(user.name);
 
-      Socket s = null;
+      Socket socket = null;
       try
       {
-        SocketChannel channel = (SocketChannel)user.key.channel();
-        s = channel.socket();
-        System.out.println("Closing connection to " + s);
-        s.close();
-        users.remove(channel);
+        socket = user.channel.socket();
+        System.out.println("Closing connection to " + socket);
+        user.channel.close();
+        socket.close();
       } catch(IOException ie) {
-        System.err.println("Error closing socket " + s + ": " + ie);
+        System.err.println("Error closing socket " + socket + ": " + ie);
       }
-      users.remove(user.key.channel());
     }
   }
 
@@ -296,6 +305,23 @@ public class ChatServer
     socket_channel.read(buffer);
     buffer.flip();
 
-    return buffer.limit() > 0 ? decoder.decode(buffer).toString() : null;
+    if (buffer.limit() > 0)
+    {
+      String message = decoder.decode(buffer).toString();
+
+      int last_newline = message.length();
+      while (last_newline-- > 0)
+      {
+        if (!Character.isWhitespace(message.charAt(last_newline)))
+        {
+          last_newline++;
+          break;
+        }
+      }
+
+      return last_newline > 0 ? message.substring(0, last_newline) : "";
+    }
+
+    return null;
   }
 }

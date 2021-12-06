@@ -17,7 +17,7 @@ public class ChatClient
   // ser colocadas aqui
 
   Socket client = null;
-  DataOutputStream send_to_server = null;
+  BufferedWriter send_to_server = null;
 
   // Método a usar para acrescentar uma string à caixa de texto
   // * NÃO MODIFICAR *
@@ -68,8 +68,8 @@ public class ChatClient
     // construtor, deve ser colocado aqui
 
     client = new Socket(server, port);
-    send_to_server = new DataOutputStream(
-      new DataOutputStream(client.getOutputStream())
+    send_to_server = new BufferedWriter(
+      new OutputStreamWriter(client.getOutputStream())
       );
   }
 
@@ -77,17 +77,38 @@ public class ChatClient
   // na caixa de entrada
   public void newMessage(String message) throws IOException
   {
-    if (message.charAt(message.length() - 1) != '\n')
-      message += '\n';
-
-    printMessage(message);
-    send_to_server.writeBytes(message);
+    printMessage(message + '\n');
+    send_to_server.write(message);
+    send_to_server.newLine();
+    send_to_server.flush();
   }
 
   // Método principal do objecto
   public void run() throws IOException
   {
-    // PREENCHER AQUI
+    BufferedReader read_from_server = new BufferedReader(
+      new InputStreamReader(client.getInputStream())
+      );
+
+    new Thread(new Runnable() {
+        public void run()
+        {
+          String message = null;
+
+          try
+          {
+            while (
+              (message = read_from_server.readLine()) != null &&
+              client.isConnected()
+              )
+            {
+              printMessage(message + '\n');
+            }
+          } catch (IOException io) {
+            System.out.println("error: failed to read the message: " + io);
+          }
+        }
+    }).run();
   }
 
   // Instancia o ChatClient e arranca-o invocando o seu método run()

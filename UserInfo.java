@@ -1,17 +1,22 @@
-import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 
-public class UserInfo
+class UserInfo implements Comparable<UserInfo>
 {
   public String name;
   public String sala;
   public int state;
-  public SelectionKey key;
+  public SocketChannel channel;
 
-  public UserInfo(SelectionKey key)
+  public UserInfo(SocketChannel channel)
   {
     this.name = null;
     this.state = 1; // init
     this.sala = null;
-    this.key = key;
+    this.channel = channel;
+  }
+
+  public int compareTo(UserInfo other)
+  {
+    return name.compareTo(other.name);
   }
 }
