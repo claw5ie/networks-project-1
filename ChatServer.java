@@ -12,8 +12,8 @@ public class ChatServer
   static private final ByteBuffer buffer = ByteBuffer.allocate(16384);
 
   // Decoder for incoming text -- assume UTF-8
-  static private final CharsetDecoder decoder =
-    Charset.forName("UTF8").newDecoder();
+  // static private final CharsetDecoder decoder =
+  //   Charset.forName("UTF8").newDecoder();
 
   static private Hashtable<SocketChannel, UserInfo> users = new Hashtable<>();
   static private TreeMap<String, UserInfo> clients = new TreeMap<>();
@@ -46,6 +46,8 @@ public class ChatServer
 
       while (true)
       {
+        process_clients_messages();
+
         // See if we've had any activity -- either an incoming connection,
         // or incoming data on an existing connection
         // If we don't have any activity, loop around and wait again
@@ -86,30 +88,9 @@ public class ChatServer
             {
               // It's incoming data on a connection -- process it
               sc = (SocketChannel)key.channel();
-              String message = processInput(sc);
-
               UserInfo user = users.get(sc);
-              if (message != null)
-              {
-                if (message.charAt(0) == '/')
-                {
-                  process_command(message, user);
-                }
-                else
-                {
-                  if (user.chat_room == null)
-                  {
-                    send_message_to_user(user, "ERROR");
-                  }
-                  else
-                  {
-                    send_message_to_everyone_in_room_except(
-                      user, "MESSAGE " + user.name + " " + message
-                      );
-                  }
-                }
-              }
-              else
+
+              if (process_input(user))
               {
                 // If the connection is dead, remove it from the selector
                 // and close it
@@ -223,7 +204,7 @@ public class ChatServer
     }
   }
 
-  static void process_command(String command, UserInfo user) throws IOException
+  static void process_command(UserInfo user, String command) throws IOException
   {
     if (command.startsWith("/nick "))
     {
@@ -358,33 +339,50 @@ public class ChatServer
     }
   }
 
-  // Just read the message from the socket and send it to stdout
-  static private String processInput(
-    SocketChannel socket_channel
+  static private boolean process_input(
+    UserInfo user
     ) throws IOException
   {
-    // Read the message to the buffer
     buffer.clear();
-    socket_channel.read(buffer);
+    user.channel.read(buffer);
     buffer.flip();
 
-    if (buffer.limit() > 0)
-    {
-      String message = decoder.decode(buffer).toString();
+    // Maybe should dump the users buffer before closing.
+    if (buffer.limit() <= 0)
+      return true;
 
-      int last_newline = message.length();
-      while (last_newline-- > 0)
+    user.reader.put(buffer);
+
+    return false;
+  }
+  
+  static void process_clients_messages() throws IOException
+  {
+    for (SocketChannel channel : users.keySet())
+    {
+      UserInfo user = users.get(channel);
+
+      String message = null;
+      while ((message = user.reader.read_line()) != null)
       {
-        if (!Character.isWhitespace(message.charAt(last_newline)))
+        if (message.length() > 0 && message.charAt(0) == '/')
         {
-          last_newline++;
-          break;
+          process_command(user, message);
+        }
+        else
+        {
+          if (user.chat_room == null)
+          {
+            send_message_to_user(user, "ERROR");
+          }
+          else
+          {
+            send_message_to_everyone_in_room_except(
+              user, "MESSAGE " + user.name + " " + message
+              );
+          }
         }
       }
-
-      return last_newline > 0 ? message.substring(0, last_newline) : "";
     }
-
-    return null;
   }
 }
