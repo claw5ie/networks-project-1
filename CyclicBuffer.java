@@ -17,43 +17,22 @@ class CyclicBuffer
 
   void put(ByteBuffer buffer)
   {
-    if (size + buffer.limit() > capacity)
+    if (size + buffer.limit() <= capacity)
     {
-      System.err.println("Overflow in buffer detected!");
-    }
-    else if (position + size >= capacity)
-    {
-      int last_byte = position + size - capacity;
-
-      for (int i = 0; i < buffer.limit(); i++)
-        data[last_byte++] = buffer.get(i);
+      for (int i = 0, j = position + size; i < buffer.limit(); i++, j++)
+        data[j -= (j >= capacity ? capacity : 0)] = buffer.get(i);
 
       size += buffer.limit();
     }
     else
     {
-      int last_byte = position + size;
+      System.err.println("Overflow in buffer detected!");
 
-      if (buffer.limit() > capacity - last_byte)
-      {
-        int bytes_to_read = capacity - last_byte;
+      int limit = capacity < buffer.limit() ? capacity : buffer.limit();
+      for (int i = 0, j = position + size; i < limit; i++, j++)
+        data[j -= (j >= capacity ? capacity : 0)] = buffer.get(i);
 
-        int i = 0;
-        for (; i < bytes_to_read; i++)
-          data[last_byte++] = buffer.get(i);
-
-        for (int j = 0; i < buffer.limit(); j++, i++)
-          data[j] = buffer.get(i);
-
-        size += buffer.limit();
-      }
-      else
-      {
-        for (int i = 0; i < buffer.limit(); i++)
-          data[last_byte++] = buffer.get(i);
-
-        size += buffer.limit();
-      }
+      this.size = capacity;
     }
   }
 
@@ -90,14 +69,11 @@ class CyclicBuffer
 
   private int find_newline()
   {
-    int newline_pos = position;
-    for (int i = 0; i < size; i++, newline_pos++)
+    int j = position;
+    for (int i = 0; i < size; i++, j++)
     {
-      if (newline_pos >= capacity)
-        newline_pos -= capacity;
-
-      if (data[newline_pos] == '\n')
-        return newline_pos;
+      if (data[j -= (j >= capacity ? capacity : 0)] == '\n')
+        return j;
     }
 
     return -1;
