@@ -93,7 +93,7 @@ public class ChatServer
               {
                 if (message.charAt(0) == '/')
                 {
-                  process_command(message.split(" ", 0), user);
+                  process_command(message, user);
                 }
                 else
                 {
@@ -223,10 +223,14 @@ public class ChatServer
     }
   }
 
-  static void process_command(String[] words, UserInfo user) throws IOException
+  static void process_command(String command, UserInfo user) throws IOException
   {
-    if (words[0].equals("/nick"))
+    if (command.startsWith("/nick "))
     {
+      // This allows the user to have nickname with whitespaces, but then no one
+      // is going to be able to send private messages to him, 'cause the "/priv"
+      // command is split by spaces...
+      String[] words = command.split(" +", 2);
       if (words.length != 2 || clients.containsKey(words[1]))
       {
         send_message_to_user(user, "ERROR");
@@ -255,8 +259,9 @@ public class ChatServer
       send_message_to_user(user, "OK");
       user.name = new_user_name;
     }
-    else if (words[0].equals("/join"))
+    else if (command.startsWith("/join "))
     {
+      String[] words = command.split(" +", 2);
       if (words.length != 2 || user.name == null)
       {
         send_message_to_user(user, "ERROR");
@@ -298,9 +303,9 @@ public class ChatServer
         send_message_to_user(user, "OK");
       }
     }
-    else if (words[0].equals("/leave"))
+    else if (command.equals("/leave"))
     {
-      if (user.chat_room == null || words.length != 1)
+      if (user.chat_room == null)
       {
         send_message_to_user(user, "ERROR");
 
@@ -311,15 +316,8 @@ public class ChatServer
       user.chat_room = null;
       send_message_to_user(user, "OK");
     }
-    else if (words[0].equals("/bye"))
+    else if (command.equals("/bye"))
     {
-      if (words.length != 1)
-      {
-        send_message_to_user(user, "ERROR");
-
-        return;
-      }
-
       send_message_to_user(user, "BYE");
       remove_user_from_room(user);
       users.remove(user.channel);
@@ -338,10 +336,11 @@ public class ChatServer
         System.err.println("Error closing socket " + socket + ": " + ie);
       }
     }
-    else if (words[0].equals("/priv"))
+    else if (command.startsWith("/priv "))
     {
       // Can you send messages to yourself???
       // Also, doesn't make sense to partition message here.
+      String[] words = command.split(" +", 3);
       if (words.length != 3 || !clients.containsKey(words[1]))
       {
         send_message_to_user(user, "ERROR");
