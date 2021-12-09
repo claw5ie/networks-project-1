@@ -17,7 +17,7 @@ public class ChatServer
 
   static private Hashtable<SocketChannel, UserInfo> users = new Hashtable<>();
   static private TreeMap<String, UserInfo> clients = new TreeMap<>();
-  static private TreeMap<String, TreeSet<UserInfo>> salas = new TreeMap<>();
+  static private TreeMap<String, TreeSet<UserInfo>> chat_rooms = new TreeMap<>();
 
   static public void main(String args[]) throws Exception
   {
@@ -88,20 +88,25 @@ public class ChatServer
               sc = (SocketChannel)key.channel();
               String message = processInput(sc);
 
+              UserInfo user = users.get(sc);
               if (message != null)
               {
-                UserInfo user = users.get(sc);
-
                 if (message.charAt(0) == '/')
                 {
-                  System.out.println("Server: " + message);
                   process_command(message.split(" ", 0), user);
                 }
                 else
                 {
-                  System.out.println(
-                    (user == null ? "Anon: " : user.name) + ": " + message
-                    );
+                  if (user.chat_room == null)
+                  {
+                    send_message_to_user(user, "ERROR");
+                  }
+                  else
+                  {
+                    send_message_to_everyone_in_room_except(
+                      user, "MESSAGE " + user.name + " " + message
+                      );
+                  }
                 }
               }
               else
@@ -120,6 +125,14 @@ public class ChatServer
                 } catch(IOException ie) {
                   System.err.println("Error closing socket " + s + ": " + ie);
                 }
+
+                users.remove(user.channel);
+
+                if (user.name != null)
+                  clients.remove(user.name);
+
+                if (user.chat_room != null)
+                  remove_user_from_room(user);
               }
             } catch(IOException ie) {
               // On exception, remove this channel from the selector
@@ -145,7 +158,9 @@ public class ChatServer
     }
   }
 
-  static void send_message(UserInfo user, String message) throws IOException
+  static void send_message_to_user(
+    UserInfo user, String message
+    ) throws IOException
   {
     buffer.clear();
     buffer.put((message + '\n').getBytes());
@@ -153,132 +168,162 @@ public class ChatServer
     user.channel.write(buffer);
   }
 
+  static void send_message_to_everyone_in_room(
+    TreeSet<UserInfo> room, String message
+    ) throws IOException
+  {
+    byte[] message_as_bytes = (message + '\n').getBytes();
+
+    for (UserInfo user : room)
+    {
+      buffer.clear();
+      buffer.put(message_as_bytes);
+      buffer.flip();
+      user.channel.write(buffer);
+    }
+  }
+
+  // Send to everyone except the user, in room that the user is in.
+  static void send_message_to_everyone_in_room_except(
+    UserInfo user, String message
+    ) throws IOException
+  {
+    byte[] message_as_bytes = (message + '\n').getBytes();
+
+    for (UserInfo user_in_room : chat_rooms.get(user.chat_room))
+    {
+      // Instead of comparing strings, it is possible to compare references
+      // instead, but you need to guarantee that all string references are taken
+      // from "UserInfo" class.
+      if (!user_in_room.name.equals(user.name))
+      {
+        buffer.clear();
+        buffer.put(message_as_bytes);
+        buffer.flip();
+        user_in_room.channel.write(buffer);
+      }
+    }
+  }
+
+  static void remove_user_from_room(UserInfo user) throws IOException
+  {
+    if (user.chat_room == null)
+      return;
+
+    TreeSet<UserInfo> room = chat_rooms.get(user.chat_room);
+
+    if (room.size() == 1)
+    {
+      chat_rooms.remove(user.chat_room);
+    }
+    else
+    {
+      room.remove(user);
+      send_message_to_everyone_in_room(room, "LEFT " + user.name);
+    }
+  }
+
   static void process_command(String[] words, UserInfo user) throws IOException
   {
     if (words[0].equals("/nick"))
     {
-      // nick
-
-      if (words.length == 2)
+      if (words.length != 2 || clients.containsKey(words[1]))
       {
-        String name = words[1];
-        if (!clients.containsKey(name))
-        {
-          send_message(user, "OK");
-          if (user.state == 1)
-          {
-            user.state = 2; // outside
-            clients.put(name, user);
-          }
-          else if (user.state == 3)
-          {
-            System.out.println("NEWNICK " + user.name + " " + name);
-          }
-          user.name = name;
-        }
-        else
-        {
-          send_message(user, "ERROR");
-        }
+        send_message_to_user(user, "ERROR");
+
+        return;
+      }
+
+      String new_user_name = words[1];
+      if (user.name == null)
+      {
+        clients.put(new_user_name, user);
       }
       else
       {
-        send_message(user, "ERROR");
+        clients.remove(user.name);
+        clients.put(new_user_name, user);
+
+        if (user.chat_room != null)
+        {
+          send_message_to_everyone_in_room_except(
+            user, "NEWNICK " + user.name + " " + new_user_name
+            );
+        }
       }
+
+      send_message_to_user(user, "OK");
+      user.name = new_user_name;
     }
     else if (words[0].equals("/join"))
     {
-      // join
+      if (words.length != 2 || user.name == null)
+      {
+        send_message_to_user(user, "ERROR");
 
-      if (words.length != 2 || user.state == 1)
-      {
-        send_message(user, "ERROR");
+        return;
       }
-      else if (salas.containsKey(words[1]))
+
+      String room_to_join = words[1];
+      if (chat_rooms.containsKey(room_to_join))
       {
-        System.out.println("OK"); // para quem usa o comando
-        if (user.state == 2)
+        if (user.chat_room == null)
         {
-          System.out.println("JOINED" + user.name); // para quem ja esta na sala
-          user.state = 3; // inside
+          user.chat_room = room_to_join;
+          TreeSet<UserInfo> room = chat_rooms.get(room_to_join);
+          send_message_to_everyone_in_room(room, "JOINED " + user.name);
+          send_message_to_user(user, "OK");
+          room.add(user);
+        }
+        else if (user.chat_room.equals(room_to_join))
+        {
+          return; // What to do!?!?!?
         }
         else
         {
-          System.out.println("LEFT" + user.name); // para quem esta na sala antiga
-          // retirar user da sala na lista e se a sala ficou vazia apaga-la
-          TreeSet<UserInfo> sala = salas.get(user.sala);
-          if (sala.size() == 1)
-          {
-            salas.remove(user.sala);
-          }
-          else
-          {
-            sala.remove(user.name);
-          }
-          // para quem ja esta na sala nova
-          System.out.println("JOINED" + user.name);
+          remove_user_from_room(user);
+          TreeSet<UserInfo> new_room = chat_rooms.get(room_to_join);
+          send_message_to_everyone_in_room(new_room, "JOINED " + user.name);
+          send_message_to_user(user, "OK");
+          new_room.add(user);
+          user.chat_room = room_to_join;
         }
-        user.sala = words[1];
-        // adicionar o user nos parametros da sala
-        salas.get(user.sala).add(user);
       }
       else
       {
-        // se a sala nao existir
-        // adicionar words[1] a lista de salas com o user
-        TreeSet<UserInfo> new_sala = new TreeSet<>();
-        new_sala.add(user);
-        salas.put(words[1], new_sala);
-        user.sala = words[1];
-        System.out.println("OK");
+        TreeSet<UserInfo> new_room = new TreeSet<>();
+        new_room.add(user);
+        chat_rooms.put(room_to_join, new_room);
+        user.chat_room = room_to_join;
+        send_message_to_user(user, "OK");
       }
     }
     else if (words[0].equals("/leave"))
     {
-      // leave
+      if (user.chat_room == null || words.length != 1)
+      {
+        send_message_to_user(user, "ERROR");
 
-      if (user.state == 3 && words.length == 1)
-      {
-        // RETIRAR USER DA SALA E APAGA-LA SE PRECISO
-        TreeSet<UserInfo> sala = salas.get(user.sala);
-        if (sala.size() == 1)
-        {
-          salas.remove(user.sala);
-        }
-        else
-        {
-          sala.remove(user.name);
-        }
-        user.sala = null;
-        System.out.println("OK"); // para mim
-        System.out.println("LEFT" + user.name); // para outros
+        return;
       }
-      else
-      {
-        send_message(user, "ERROR");
-      }
+
+      remove_user_from_room(user);
+      user.chat_room = null;
+      send_message_to_user(user, "OK");
     }
     else if (words[0].equals("/bye"))
     {
-      // leave
-
-      System.out.println("BYE"); // mim
-      if (user.state == 3)
+      if (words.length != 1)
       {
-        TreeSet<UserInfo> sala = salas.get(user.sala);
-        if (sala.size() == 1)
-        {
-          salas.remove(user.sala);
-        }
-        else
-        {
-          sala.remove(user.name);
-        }
-        System.out.println("LEFT" + user.name);
+        send_message_to_user(user, "ERROR");
+
+        return;
       }
 
-      // apagar user da lista
+      send_message_to_user(user, "BYE");
+      remove_user_from_room(user);
       users.remove(user.channel);
+
       if (user.name != null)
         clients.remove(user.name);
 
@@ -292,6 +337,25 @@ public class ChatServer
       } catch(IOException ie) {
         System.err.println("Error closing socket " + socket + ": " + ie);
       }
+    }
+    else if (words[0].equals("/priv"))
+    {
+      // Can you send messages to yourself???
+      // Also, doesn't make sense to partition message here.
+      if (words.length != 3 || !clients.containsKey(words[1]))
+      {
+        send_message_to_user(user, "ERROR");
+
+        return;
+      }
+
+      send_message_to_user(
+        clients.get(words[1]), "PRIVATE " + user.name + " " + words[2]
+        );
+    }
+    else
+    {
+      send_message_to_user(user, "ERROR");
     }
   }
 
