@@ -322,7 +322,11 @@ public class ChatServer
       // Can you send messages to yourself???
       // Also, doesn't make sense to partition message here.
       String[] words = command.split(" +", 3);
-      if (words.length != 3 || !clients.containsKey(words[1]))
+      if (
+        words.length != 3 ||
+        user.name == null ||
+        !clients.containsKey(words[1])
+        )
       {
         send_message_to_user(user, "ERROR");
 
