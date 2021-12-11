@@ -100,8 +100,7 @@ public class ChatClient
               client.isConnected()
               )
             {
-              message = process(message);
-              printMessage(message + '\n');
+              printMessage(process_message(message) + '\n');
             }
           } catch (IOException io) {
             System.out.println("error: failed to read the message: " + io);
@@ -110,28 +109,37 @@ public class ChatClient
       }).run();
   }
 
-  public String process(String message){
-    if(message.startsWith("MESSAGE")){
+  public String process_message(String message)
+  {
+    if (message.startsWith("MESSAGE"))
+    {
       String[] mess = message.split(" ", 3);
-      message = mess[1] + ": " + mess[2];
+      return mess[1] + ": " + mess[2];
     }
-    else if(message.startsWith("JOINED")){
+    else if (message.startsWith("JOINED"))
+    {
       String[] mess = message.split(" ", 2);
-      message = mess[1] + " joined the room";
+      return mess[1] + " joined the room";
     }
-    else if(message.startsWith("LEFT")){
+    else if (message.startsWith("LEFT"))
+    {
       String[] mess = message.split(" ", 2);
-      message = mess[1] + " lefted the room";
+      return mess[1] + " lefted the room";
     }
-    else if(message.startsWith("NEWNICK")){
+    else if (message.startsWith("NEWNICK"))
+    {
       String[] mess = message.split(" ", 3);
-      message = mess[1] + " changed name to: " + mess[2];
+      return mess[1] + " changed name to: " + mess[2];
     }
-    else if(message.startsWith("PRIVATE")){
+    else if (message.startsWith("PRIVATE"))
+    {
       String[] mess = message.split(" ", 3);
-      message = "private message from " + mess[1] + ": " + mess[2];
+      return "private message from " + mess[1] + ": " + mess[2];
     }
-    return message;
+    else
+    {
+      return message;
+    }
   }
 
   // Instancia o ChatClient e arranca-o invocando o seu método run()
