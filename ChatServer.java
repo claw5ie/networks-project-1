@@ -355,7 +355,23 @@ public class ChatServer
 
     return false;
   }
-  
+
+  static boolean is_command(String message)
+  {
+    return (message.length() == 1 && message.charAt(0) == '/') ||
+      (message.length() > 1 &&
+       message.charAt(0) == '/' &&
+       message.charAt(1) != '/');
+  }
+
+  static String escape_message(String message)
+  {
+    if (message.length() > 0 && message.charAt(0) == '/')
+      return message.substring(1, message.length());
+    else
+      return message;
+  }
+
   static void process_clients_messages() throws IOException
   {
     for (SocketChannel channel : users.keySet())
@@ -365,7 +381,7 @@ public class ChatServer
       String message = null;
       while ((message = user.reader.read_line()) != null)
       {
-        if (message.length() > 0 && message.charAt(0) == '/')
+        if (is_command(message))
         {
           process_command(user, message);
         }
@@ -378,7 +394,7 @@ public class ChatServer
           else
           {
             send_message_to_everyone_in_room_except(
-              user, "MESSAGE " + user.name + " " + message
+              user, "MESSAGE " + user.name + " " + escape_message(message)
               );
           }
         }
