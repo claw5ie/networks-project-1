@@ -102,6 +102,7 @@ public class ChatClient
               client.isConnected()
               )
             {
+              message = process(message);
               printMessage(message + '\n');
             }
           } catch (IOException io) {
@@ -109,6 +110,30 @@ public class ChatClient
           }
         }
     }).run();
+  }
+
+  public String process(String message){
+    if(message.startsWith("MESSAGE")){
+      String[] mess = message.split(" ", 3);
+      message = mess[1] + ": " + mess[2];
+    }
+    else if(message.startsWith("JOINED")){
+      String[] mess = message.split(" ", 2);
+      message = mess[1] + " joined the room";
+    }
+    else if(message.startsWith("LEFT")){
+      String[] mess = message.split(" ", 2);
+      message = mess[1] + " lefted the room";
+    }
+    else if(message.startsWith("NEWNICK")){
+      String[] mess = message.split(" ", 3);
+      message = mess[1] + " changed name to: " + mess[2];
+    }
+    else if(message.startsWith("PRIVATE")){
+      String[] mess = message.split(" ", 3);
+      message = "private message from " + mess[1] + ": " + mess[2];
+    }
+    return message;
   }
 
   // Instancia o ChatClient e arranca-o invocando o seu método run()
