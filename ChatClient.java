@@ -41,8 +41,7 @@ public class ChatClient
     frame.setVisible(true);
     chatArea.setEditable(false);
     chatBox.setEditable(true);
-    chatBox.addActionListener(new ActionListener()
-      {
+    chatBox.addActionListener(new ActionListener() {
         @Override
         public void actionPerformed(ActionEvent e)
         {
@@ -55,8 +54,7 @@ public class ChatClient
           }
         }
       });
-    frame.addWindowListener(new WindowAdapter()
-      {
+    frame.addWindowListener(new WindowAdapter() {
         public void windowOpened(WindowEvent e)
         {
           chatBox.requestFocusInWindow();
@@ -109,7 +107,7 @@ public class ChatClient
             System.out.println("error: failed to read the message: " + io);
           }
         }
-    }).run();
+      }).run();
   }
 
   public String process(String message){
